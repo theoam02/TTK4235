@@ -9,28 +9,17 @@ int main(){
     
     printf("=== Example Program ===\n");
     printf("Press the stop button on the elevator panel to exit\n");
-
-    elevio_motorDirection(DIRN_UP);
+    
+    elevCon_start();
+    // printf("Start works\n");
 
     while(1){
         int floor = elevio_floorSensor();
+        /*int dir = elevCon_get_dir();
         printf("floor: %d \n",floor);
 
-        if(floor == 0){
-            elevio_motorDirection(DIRN_UP);
-        }
-
-        if(floor == N_FLOORS-1){
-            elevio_motorDirection(DIRN_DOWN);
-        }
-
-
-        for(int f = 0; f < N_FLOORS; f++){
-            for(int b = 0; b < N_BUTTONS; b++){
-                int btnPressed = elevio_callButton(f, b);
-                elevio_buttonLamp(f, b, btnPressed);
-            }
-        }
+        elevCon_updateFloorLight();
+        printf("Floorlight works\n");
 
         if(elevio_obstruction()){
             elevio_stopLamp(1);
@@ -38,11 +27,36 @@ int main(){
             elevio_stopLamp(0);
         }
         
+        // Stop Elewator
         if(elevio_stopButton()){
-            elevio_motorDirection(DIRN_STOP);
-            break;
+            elevCon_emergencyStop();
+            // printf("Stop was run a time\n");
+        }
+
+        elevCon_add_order();
+        printf("Orders added\n");
+        elevCon_checkFloor(floor, dir);
+        // printf("floors checked\n");
+
+        // Change direction
+
+        if(floor == 0 || floor == N_FLOORS-1)
+        {
+            elevCon_should_change_direction(floor);
+            // printf("Checked if change direction\n");
         }
         
+        nanosleep(&(struct timespec){0, 20*1000*1000}, NULL);
+
+        elevCon_print_orders();
+
+        print("The motor direction is: %i\n", motor_dir);
+        */
+
+        elevio_floorIndicator(2);
+
+        print_dir();
+
         nanosleep(&(struct timespec){0, 20*1000*1000}, NULL);
     }
 
