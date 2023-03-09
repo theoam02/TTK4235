@@ -46,7 +46,7 @@ void elevCon_emergencyStop()
 }
 
 /**
- * @brief If elevator isn't between floors, check if it has an order in same direction or cab, in which case it will service the floor.
+ * @brief If elevator isn't between floors, check if the current floor has an order of the same direction button or cab, in which case it will service the floor for all orders.
  * 
  * @param cur_floor 
  * @param dir 
@@ -58,25 +58,31 @@ void elevCon_checkFloor(int cur_floor, MotorDirection dir)
         return;
     }else
     {
+        if(dir == DIRN_STOP)
+        {
+            if(elevOrders[cur_floor][BUTTON_HALL_DOWN] == order || elevOrders[cur_floor][BUTTON_HALL_UP] == order) 
+            {
+                elevCon_serviceCurFloor(cur_floor, dir);
+                return;
+            }
+        }
         if(dir == DIRN_DOWN)
         {
-            if(elevOrders[cur_floor][1] == order) 
+            if(elevOrders[cur_floor][BUTTON_HALL_DOWN] == order) 
             {
-                elevCon_serviceCurFloor(cur_floor);
-                // elevOrders[cur_floor][2] = no_order;
+                elevCon_serviceCurFloor(cur_floor, dir);
                 return;
             }
         }
         if(dir == DIRN_UP)
         {
-            if(elevOrders[cur_floor][0] == order) 
+            if(elevOrders[cur_floor][BUTTON_HALL_UP] == order) 
             {
-                elevCon_serviceCurFloor(cur_floor);
-                // elevOrders[cur_floor][2] = no_order;
+                elevCon_serviceCurFloor(cur_floor, dir);
                 return;
             }
         }
-        if(elevOrders[cur_floor][2] == order) elevCon_serviceCurFloor(cur_floor);
+        if(elevOrders[cur_floor][BUTTON_CAB] == order) elevCon_serviceCurFloor(cur_floor, dir);
     }
 }
 
@@ -87,26 +93,43 @@ if(!floors_in_direction(dir))
 }
 */
 
+/**
+ * @brief Check if there are any floors in the specific direction
+ * 
+ * @param cur_floor 
+ * @param dir 
+ * @return true 
+ * @return false 
+ */
 bool elevCon_floors_in_direction(int cur_floor, MotorDirection dir)
 {
-    // Check all cab orders
-    for(int f = 0; f < N_FLOORS; f++){
-        if(elevOrders[f][2] == order) return true;
+    if(cur_floor==-1)
+    {
+        return true;
     }
 
-    if(dir == DIRN_DOWN || dir == DIRN_STOP)
+    // Check all cab orders
+    for(int f = 0; f < N_FLOORS; f++){
+        if(elevOrders[f][BUTTON_CAB] == order) return true;
+    }
+
+    // Check down orders
+    if(dir==DIRN_DOWN)
     {
         for(int floor = cur_floor; floor > 0; floor--)
         {
-            if(elevOrders[floor][1] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_DOWN] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_UP] == order) return true;
         }
     }
 
-    if(dir == DIRN_UP || dir == DIRN_STOP)
+    // Check up orders
+    if(dir==DIRN_UP)
     {
         for(int floor = cur_floor; floor < N_FLOORS-1; floor++)
         {
-            if(elevOrders[floor][0] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_UP] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_DOWN] == order) return true;
         }
     }
 
@@ -119,12 +142,13 @@ bool elevCon_floors_in_direction(int cur_floor, MotorDirection dir)
  */
 void elevCon_updateFloorLight()
 {
-    if(elevio_floorSensor()!=-1)
+    if(elevio_floorSensor()==-1)
     {
         return;
     }else
     {
-        elevio_floorIndicator(elevio_floorSensor()+1);
+        elevio_floorIndicator(elevio_floorSensor());
+        printf("Updating light %d\n", elevio_floorSensor());
     }
 }
 
@@ -132,9 +156,14 @@ void elevCon_add_order()
 {
     for(int f = 0; f < N_FLOORS; f++){
         for(int b = 0; b < N_BUTTONS; b++){
-            int btnPressed = elevio_callButton(f, b);
+            int btnPressed = elevio_callButton(f, b); // is 1 if button is pressed, is 0 if button isn't pressed
             elevio_buttonLamp(f, b, btnPressed);
-            if(btnPressed) elevOrders[f][b] = order;
+            if(btnPressed)
+            {
+                elevOrders[f][b] = order;
+                printf("Added order floor %i button %i\n", f, b);
+                printf("The order for floor %i button %i is %i\n", f, b, elevOrders[f][b]);
+            }
         }
     }
 }
@@ -149,55 +178,72 @@ void elevCon_start()
 {
     if(elevio_floorSensor()==-1)
     {
-        printf("In if test in elevcon start");
+        printf("In if test in elevcon start\n");
         elevCon_set_dir(DIRN_DOWN);
         while(elevio_floorSensor()==-1){
+            /*
             for(int f = 0; f < N_FLOORS; f++){
                 for(int b = 0; b < N_BUTTONS; b++){
                     int btnPressed = elevio_callButton(f, b);
                     elevOrders[f][b] = no_order;
                 }
-            }
+            }*/
         }
         elevCon_set_dir(DIRN_STOP);
     }
     print_dir();
-    while(motor_dir==DIRN_STOP)
     {
-        elevCon_should_change_direction(elevio_floorSensor());
+        printf("IN ELEVCON START LOOP\n");
+        elevCon_should_change_direction(elevio_floorSensor(), motor_dir);
         elevCon_add_order();
-        elevCon_print_orders();
     }
-    printf("Exited thing");
+    printf("Exited elevCon_start\n");
 }
 
 /**
  * @brief Stop elevator, open door for three seconds, then close door and continue.
  * 
  */
-void elevCon_serviceCurFloor(int cur_floor) // , int order)
+void elevCon_serviceCurFloor(int cur_floor, MotorDirection dir) // , int order)
 {
     elevCon_set_dir(DIRN_STOP);
     elevio_doorOpenLamp(1);
     sleep(3);
     elevio_doorOpenLamp(0);
-    
-    // elevOrders[cur_floor][order];
 
-    // Remove all orders
+    // Remove all orders from current floor
     for(int b = 0; b < N_BUTTONS; b++){
-        int btnPressed = elevio_callButton(cur_floor, b);
         elevOrders[cur_floor][b] = no_order;
     }
 
-    elevCon_should_change_direction(cur_floor);
+    if(cur_floor == 0 || cur_floor == N_FLOORS-1)
+    {
+        elevCon_set_dir(dir*-1);
+        return;
+    }
+
+    elevCon_set_dir(dir);
+    
+    elevCon_should_change_direction(cur_floor, dir);
 }
 
-void elevCon_should_change_direction(int cur_floor)
+void elevCon_should_change_direction(int cur_floor, MotorDirection dir)
 {
+    if(cur_floor==-1) return;
     if(motor_dir == DIRN_STOP)
     {
-
+        if(elevCon_floors_in_direction(cur_floor, DIRN_UP))
+        {
+            elevCon_set_dir(DIRN_UP);
+            printf("Set direction up\n");
+            return;
+        }
+        if(elevCon_floors_in_direction(cur_floor, DIRN_DOWN))
+        {
+            elevCon_set_dir(DIRN_DOWN);
+            printf("Set direction down\n");
+            return;
+        }
     }
 
     if(!elevCon_floors_in_direction(cur_floor, motor_dir))
@@ -206,8 +252,10 @@ void elevCon_should_change_direction(int cur_floor)
         {
             elevCon_set_dir(DIRN_STOP);
             return;
+        }else{
+            elevCon_set_dir(motor_dir*-1);
+            printf("Change direction of eelvatre");
         }
-        elevCon_set_dir(motor_dir*-1);
     }
 }
 

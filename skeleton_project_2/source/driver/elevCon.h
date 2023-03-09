@@ -16,9 +16,9 @@ void elevCon_updateFloorLight();
 void elevCon_add_order();
 void elevCon_set_dir(MotorDirection dir);
 void elevCon_start();
-void elevCon_serviceCurFloor();
+void elevCon_serviceCurFloor(int cur_floor, MotorDirection dir);
 MotorDirection elevCon_get_dir();
-void elevCon_should_change_direction(int cur_floor);
+void elevCon_should_change_direction(int cur_floor, MotorDirection dir);
 
 void elevCon_print_orders();
 void print_dir();
