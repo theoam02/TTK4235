@@ -82,7 +82,12 @@ void elevCon_checkFloor(int cur_floor, MotorDirection dir)
                 return;
             }
         }
-        if(elevOrders[cur_floor][BUTTON_CAB] == order) elevCon_serviceCurFloor(cur_floor, dir);
+        if(elevOrders[cur_floor][BUTTON_CAB] == order)
+        {
+            elevCon_serviceCurFloor(cur_floor, dir);
+            return;
+        }
+        elevCon_should_change_direction(cur_floor, dir);
     }
 }
 
@@ -105,31 +110,38 @@ bool elevCon_floors_in_direction(int cur_floor, MotorDirection dir)
 {
     if(cur_floor==-1)
     {
-        return true;
+        return false;
     }
 
-    // Check all cab orders
-    for(int f = 0; f < N_FLOORS; f++){
-        if(elevOrders[f][BUTTON_CAB] == order) return true;
+    if(dir==DIRN_STOP)
+    {
+        for(int floor = 0; floor <= N_FLOORS-1; floor++)
+        {
+            if(elevOrders[floor][BUTTON_HALL_DOWN] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_UP] == order) return true;
+            if(elevOrders[floor][BUTTON_CAB] == order) return true;
+        }
     }
 
     // Check down orders
     if(dir==DIRN_DOWN)
     {
-        for(int floor = cur_floor; floor > 0; floor--)
+        for(int floor = cur_floor; floor >= 0; floor--)
         {
-            if(elevOrders[floor][BUTTON_HALL_DOWN] == order) return true;
-            if(elevOrders[floor][BUTTON_HALL_UP] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_DOWN] == order && !(cur_floor == N_FLOORS-1 && floor == N_FLOORS-1)) return true;
+            if(elevOrders[floor][BUTTON_HALL_UP] == order && !(cur_floor == 0 && floor == 0)) return true;
+            if(elevOrders[floor][BUTTON_CAB] == order) return true;
         }
     }
 
     // Check up orders
     if(dir==DIRN_UP)
     {
-        for(int floor = cur_floor; floor < N_FLOORS-1; floor++)
+        for(int floor = cur_floor; floor <= N_FLOORS-1; floor++)
         {
-            if(elevOrders[floor][BUTTON_HALL_UP] == order) return true;
-            if(elevOrders[floor][BUTTON_HALL_DOWN] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_UP] == order && !(cur_floor == 0 && floor == 0)) return true;
+            if(elevOrders[floor][BUTTON_HALL_DOWN] == order && !(cur_floor == N_FLOORS-1 && floor == N_FLOORS-1) ) return true;
+            if(elevOrders[floor][BUTTON_CAB] == order) return true;
         }
     }
 
@@ -162,7 +174,6 @@ void elevCon_add_order()
             {
                 elevOrders[f][b] = order;
                 printf("Added order floor %i button %i\n", f, b);
-                printf("The order for floor %i button %i is %i\n", f, b, elevOrders[f][b]);
             }
         }
     }
@@ -172,13 +183,13 @@ void elevCon_set_dir(MotorDirection dir)
 {
     motor_dir = dir;
     elevio_motorDirection(dir);
+    printf("Set direction to %i\n", dir);
 }
 
 void elevCon_start()
 {
     if(elevio_floorSensor()==-1)
     {
-        printf("In if test in elevcon start\n");
         elevCon_set_dir(DIRN_DOWN);
         while(elevio_floorSensor()==-1){
             /*
@@ -191,13 +202,6 @@ void elevCon_start()
         }
         elevCon_set_dir(DIRN_STOP);
     }
-    print_dir();
-    {
-        printf("IN ELEVCON START LOOP\n");
-        elevCon_should_change_direction(elevio_floorSensor(), motor_dir);
-        elevCon_add_order();
-    }
-    printf("Exited elevCon_start\n");
 }
 
 /**
@@ -215,14 +219,6 @@ void elevCon_serviceCurFloor(int cur_floor, MotorDirection dir) // , int order)
     for(int b = 0; b < N_BUTTONS; b++){
         elevOrders[cur_floor][b] = no_order;
     }
-
-    if(cur_floor == 0 || cur_floor == N_FLOORS-1)
-    {
-        elevCon_set_dir(dir*-1);
-        return;
-    }
-
-    elevCon_set_dir(dir);
     
     elevCon_should_change_direction(cur_floor, dir);
 }
@@ -230,32 +226,34 @@ void elevCon_serviceCurFloor(int cur_floor, MotorDirection dir) // , int order)
 void elevCon_should_change_direction(int cur_floor, MotorDirection dir)
 {
     if(cur_floor==-1) return;
-    if(motor_dir == DIRN_STOP)
+    if(dir == DIRN_STOP)
     {
         if(elevCon_floors_in_direction(cur_floor, DIRN_UP))
         {
             elevCon_set_dir(DIRN_UP);
-            printf("Set direction up\n");
             return;
         }
         if(elevCon_floors_in_direction(cur_floor, DIRN_DOWN))
         {
             elevCon_set_dir(DIRN_DOWN);
-            printf("Set direction down\n");
             return;
         }
+        return;
     }
 
-    if(!elevCon_floors_in_direction(cur_floor, motor_dir))
+    if(!elevCon_floors_in_direction(cur_floor, dir))
     {
-        if(!elevCon_floors_in_direction(cur_floor, motor_dir*-1))
+        if(!elevCon_floors_in_direction(cur_floor, dir*-1))
         {
             elevCon_set_dir(DIRN_STOP);
             return;
         }else{
-            elevCon_set_dir(motor_dir*-1);
-            printf("Change direction of eelvatre");
+            elevCon_set_dir(dir*-1);
+            return;
         }
+    }else{
+        elevCon_set_dir(dir); // Direction must be reset since it was set to stop earlier.
+        return;
     }
 }
 
@@ -278,4 +276,4 @@ void print_dir()
     printf("The motor direction is: %i\n", motor_dir);
 }
 
-// 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
+// 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

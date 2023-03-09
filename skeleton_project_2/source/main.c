@@ -35,24 +35,23 @@ int main(){
         }
         */
 
-        // Stop at floor 1 or 4
-        if(floor == 0 || floor == N_FLOORS-1)
+        if(dir==DIRN_STOP)
         {
-            elevCon_set_dir(DIRN_STOP);
-            elevCon_checkFloor(floor, dir);
             elevCon_should_change_direction(floor, dir);
         }
 
-        if(floor!=-1)
+        if(floor == 0 || floor == N_FLOORS-1)
         {
+            printf("At floor 1 or 4");
             elevCon_should_change_direction(floor, dir);
+        }
+
+        if(floor != -1)
+        {
             elevCon_checkFloor(floor, dir);
-            printf("floor: %d \n",floor);
         }
 
         elevCon_add_order();
-
-        if(dir==DIRN_STOP) elevCon_should_change_direction(floor, dir);
 
         nanosleep(&(struct timespec){0, 20*1000*1000}, NULL);
     }
