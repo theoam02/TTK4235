@@ -17,23 +17,13 @@ int main(){
         int floor = elevio_floorSensor();
         int dir = elevCon_get_dir();
 
-        // elevCon_updateFloorLight();
-
-        /*
-        if(elevio_obstruction()){
-            elevio_stopLamp(1);
-        } else {
-            elevio_stopLamp(0);
-        }
-        */
+        elevCon_updateFloorLight();
         
-        /*
         // Stop Elewator
         if(elevio_stopButton()){
-            elevCon_emergencyStop();
-            // printf("Stop was run a time\n");
+            elevCon_emergencyStop(floor, dir);
+            printf("Stop was run a time\n");
         }
-        */
 
         if(dir==DIRN_STOP)
         {
@@ -42,7 +32,6 @@ int main(){
 
         if(floor == 0 || floor == N_FLOORS-1)
         {
-            printf("At floor 1 or 4");
             elevCon_should_change_direction(floor, dir);
         }
 
@@ -52,8 +41,6 @@ int main(){
         }
 
         elevCon_add_order();
-
-        nanosleep(&(struct timespec){0, 20*1000*1000}, NULL);
     }
 
     return 0;

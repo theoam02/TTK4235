@@ -26,6 +26,8 @@ elevCon_order elevOrders[4][3] =
 
 void elevCon_emergencyStop()
 {
+    elevCon_set_dir(DIRN_STOP);
+
     // Remove all orders
     for(int f = 0; f < N_FLOORS; f++){
         for(int b = 0; b < N_BUTTONS; b++){
@@ -40,6 +42,8 @@ void elevCon_emergencyStop()
     
     // Wait 3 seconds before starting again
     sleep(3);
+
+    elevio_doorOpenLamp(0);
 
     // Start elevator again
     elevCon_start();
@@ -68,35 +72,43 @@ void elevCon_checkFloor(int cur_floor, MotorDirection dir)
         }
         if(dir == DIRN_DOWN)
         {
-            if(elevOrders[cur_floor][BUTTON_HALL_DOWN] == order) 
+            if(elevOrders[cur_floor][BUTTON_HALL_DOWN] == order || elevOrders[cur_floor][BUTTON_CAB] == order) 
             {
+                elevCon_serviceCurFloor(cur_floor, dir);
+                return;
+            }
+            for(int floor = cur_floor; floor >= 0; floor--)
+            {
+                if(elevOrders[floor][BUTTON_HALL_DOWN] == order && !(cur_floor == 0 && floor == 0)) return;
+                if(elevOrders[floor][BUTTON_CAB] == order) return;
+                if(elevOrders[floor][BUTTON_HALL_UP] == order && !(cur_floor == 0 && floor == 0) && floor != cur_floor) return;
+            }
+            if(elevOrders[cur_floor][BUTTON_HALL_UP] == order){
                 elevCon_serviceCurFloor(cur_floor, dir);
                 return;
             }
         }
         if(dir == DIRN_UP)
         {
-            if(elevOrders[cur_floor][BUTTON_HALL_UP] == order) 
+            if(elevOrders[cur_floor][BUTTON_HALL_UP] == order || elevOrders[cur_floor][BUTTON_CAB] == order) 
             {
                 elevCon_serviceCurFloor(cur_floor, dir);
                 return;
             }
-        }
-        if(elevOrders[cur_floor][BUTTON_CAB] == order)
-        {
-            elevCon_serviceCurFloor(cur_floor, dir);
-            return;
+            for(int floor = cur_floor; floor <= N_FLOORS-1; floor++)
+            {
+                if(elevOrders[floor][BUTTON_HALL_UP] == order && !(cur_floor == 0 && floor == 0)) return;
+                if(elevOrders[floor][BUTTON_CAB] == order) return;
+                if(elevOrders[floor][BUTTON_HALL_DOWN] == order && !(cur_floor == 0 && floor == 0) && floor != cur_floor) return;
+            }
+            if(elevOrders[cur_floor][BUTTON_HALL_DOWN] == order){
+                elevCon_serviceCurFloor(cur_floor, dir);
+                return;
+            }
         }
         elevCon_should_change_direction(cur_floor, dir);
     }
 }
-
-/*
-if(!floors_in_direction(dir))
-{
-    elevio_motorDirection(dir*-1)
-}
-*/
 
 /**
  * @brief Check if there are any floors in the specific direction
@@ -113,13 +125,14 @@ bool elevCon_floors_in_direction(int cur_floor, MotorDirection dir)
         return false;
     }
 
+    // If the elevator is stopped, will check if any floors have orders
     if(dir==DIRN_STOP)
     {
         for(int floor = 0; floor <= N_FLOORS-1; floor++)
         {
-            if(elevOrders[floor][BUTTON_HALL_DOWN] == order) return true;
-            if(elevOrders[floor][BUTTON_HALL_UP] == order) return true;
-            if(elevOrders[floor][BUTTON_CAB] == order) return true;
+            if(elevOrders[floor][BUTTON_HALL_DOWN] == order && floor != cur_floor) return true; // Don't check the floor it's already on for safety
+            if(elevOrders[floor][BUTTON_HALL_UP] == order && floor != cur_floor) return true;
+            if(elevOrders[floor][BUTTON_CAB] == order && floor != cur_floor) return true;
         }
     }
 
@@ -169,11 +182,11 @@ void elevCon_add_order()
     for(int f = 0; f < N_FLOORS; f++){
         for(int b = 0; b < N_BUTTONS; b++){
             int btnPressed = elevio_callButton(f, b); // is 1 if button is pressed, is 0 if button isn't pressed
-            elevio_buttonLamp(f, b, btnPressed);
             if(btnPressed)
             {
                 elevOrders[f][b] = order;
                 printf("Added order floor %i button %i\n", f, b);
+                elevio_buttonLamp(f, b, 1);
             }
         }
     }
@@ -210,14 +223,28 @@ void elevCon_start()
  */
 void elevCon_serviceCurFloor(int cur_floor, MotorDirection dir) // , int order)
 {
+    time_t begin;
+
     elevCon_set_dir(DIRN_STOP);
+
     elevio_doorOpenLamp(1);
-    sleep(3);
+
+    time(&begin);
+
+    // Wait 3 seconds, but reset timer if there's an obstruction present
+    while(time(NULL)-begin < 3) // Because counting includes 0 we add 1
+    {
+        if(elevio_obstruction()) time(&begin);
+        printf("CUR TIME: %i\n", (int)(time(NULL)-begin));
+        elevCon_add_order();
+    }
+
     elevio_doorOpenLamp(0);
 
     // Remove all orders from current floor
     for(int b = 0; b < N_BUTTONS; b++){
         elevOrders[cur_floor][b] = no_order;
+        elevio_buttonLamp(cur_floor, b, 0);
     }
     
     elevCon_should_change_direction(cur_floor, dir);
