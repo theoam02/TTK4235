@@ -33,34 +33,70 @@ typedef struct {
 	volatile uint32_t PIN_CNF[10];
 } NRF_GPIO_REGS1;
 
+int led_row_array[5] = {21, 22, 15, 24, 19};
+int led_col_array[5] = {28, 11, 31, 5, 30};
+
+void led_set(int row, int col)
+{
+	/*if(col == 5)
+	{
+		GPIO1->OUTCLR |= 1 << col;
+	}else{
+		GPIO0->OUTCLR |= 1 << col;
+	}*/
+	GPIO1->OUTSET |= 1 << row;
+}
+
+void led_clr(int row, int col)
+{
+	if(col == 5)
+	{
+		GPIO1->OUTSET |= 1 << col;
+	}else{
+		GPIO0->OUTSET |= 1 << col;
+	}
+	GPIO1->OUTCLR |= 1 << row;
+}
+
 int main(){
 
 	// Configure leds (dere må sjekke selv hvilken GPIO modul de ulike knappene tilhører)
-	__GPIOX__->PIN_CNF[21] = 1; //Row 1
-	__GPIOX__->PIN_CNF[22] = 1; //Row 2
-	__GPIOX__->PIN_CNF[15] = 1; //Row 3
-	__GPIOX__->PIN_CNF[24] = 1; //Row 4
-	__GPIOX__->PIN_CNF[19] = 1; //Row 5
+	GPIO0->PIN_CNF[21] = 1; //Row 1
+	GPIO0->PIN_CNF[22] = 1; //Row 2
+	GPIO0->PIN_CNF[15] = 1; //Row 3
+	GPIO0->PIN_CNF[24] = 1; //Row 4
+	GPIO0->PIN_CNF[19] = 1; //Row 5
 
-	__GPIOX__->PIN_CNF[28] = 1; //Col 1
-	__GPIOX__->PIN_CNF[11] = 1; //Col 2
-	__GPIOX__->PIN_CNF[31] = 1; //Col 3
-	__GPIOX__->PIN_CNF[5] = 1;  //Col 4
-	__GPIOX__->PIN_CNF[30] = 1; //Col 5 
+	GPIO0->PIN_CNF[28] = 1; //Col 1
+	GPIO0->PIN_CNF[11] = 1; //Col 2
+	GPIO0->PIN_CNF[31] = 1; //Col 3
+	GPIO1->PIN_CNF[5] = 1;  //Col 4
+	GPIO0->PIN_CNF[30] = 1; //Col 5 
 	
 	// Configure buttons (dere må sjekke selv hvilken GPIO modul de ulike knappene tilhører)
-	__GPIOX__->PIN_CNF[__BUTTON_A_PIN__] = 0; // button A 
-	__GPIOX__->PIN_CNF[__BUTTON_B_PIN__] = 0; // button B
+	GPIO0->PIN_CNF[14] = 0; // button A 
+	GPIO0->PIN_CNF[23] = 0; // button B
 	
 	int sleep = 0;
 	while(1){
 
-		/* Check if button B is pressed;
-		 * turn on LED matrix if it is. */
+		if(!(GPIO0->IN & (1 << 14)))
+		{
+			GPIO0->OUTSET |= (1 << 21);
+			GPIO0->OUTSET |= (1 << 22);
+			GPIO0->OUTSET |= (1 << 15);
+			GPIO0->OUTSET |= (1 << 24);
+			GPIO0->OUTSET |= (1 << 19);
+		}
 
-		/* Check if button A is pressed;
-		 * turn off LED matrix if it is. */
-
+		if(!(GPIO0->IN & (1 << 23)))
+		{
+			GPIO0->OUTCLR |= (1 << 21);
+			GPIO0->OUTCLR |= (1 << 22);
+			GPIO0->OUTCLR |= (1 << 15);
+			GPIO0->OUTCLR |= (1 << 24);
+			GPIO0->OUTCLR |= (1 << 19);
+		}
 		sleep = 10000;
 		while(--sleep);
 	}
