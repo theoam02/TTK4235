@@ -1,10 +1,8 @@
 #include "ppi.h"
+#include "gpiote.h"
 #include "gpio.h"
-#include "uart.h"
 
 int main(){
-
-    int tgl = 0;
 
     // Configure leds (dere må sjekke selv hvilken GPIO modul de ulike knappene tilhører)
 	GPIO0->PIN_CNF[21] = 1; //Row 1
@@ -23,42 +21,46 @@ int main(){
 	GPIO0->PIN_CNF[14] = 0; // button A 
 	GPIO0->PIN_CNF[23] = 0; // button B
 
-    int sleep = 0;
-	while(1){
 
-		if(!(GPIO0->IN & (1 << 14))) // If button A pressed
-		{
-			uart_send('A');
-		}
+    // GPIOTE channel 0 set to Button A
+    GPIOTE->CONFIG[0] = (1 << 20) | (3 << 16) | (0 << 12) | (14 << 8) | 3; // Set initial outinit to high (no effect for event mode), set event and task to toggle on trigger, set port, set pin, set task or event mode
 
-		if(!(GPIO0->IN & (1 << 23))) // If button B pressed
-		{
-			uart_send('B');
-		}
+    // GPIOTE channel 1 set to Row 1
+    GPIOTE->CONFIG[1] = (1 << 20) | (3 << 16) | (0 << 12) | (21 << 8) | 1; // Set port as 0 and pin as 14. 0b11000000000
 
-        if(uart_read() != '\0')
-        {
-            if(tgl == 0)
-            {
-                tgl = 1;
-                GPIO0->OUTSET |= (1 << 21);
-                GPIO0->OUTSET |= (1 << 22);
-                GPIO0->OUTSET |= (1 << 15);
-                GPIO0->OUTSET |= (1 << 24);
-                GPIO0->OUTSET |= (1 << 19);
-            }else if(tgl == 1){
-                tgl = 0;
-                GPIO0->OUTCLR |= (1 << 21);
-                GPIO0->OUTCLR |= (1 << 22);
-                GPIO0->OUTCLR |= (1 << 15);
-                GPIO0->OUTCLR |= (1 << 24);
-                GPIO0->OUTCLR |= (1 << 19);
-            }
-        }
+    // GPIOTE channel 2 set to Row 2
+    GPIOTE->CONFIG[2] = (1 << 20) | (3 << 16) | (0 << 12) | (22 << 8) | 1; // Set port as 0 and pin as 14. 0b11000000000
 
-		sleep = 10000;
-		while(--sleep);
-	}
+    // GPIOTE channel 3 set to Row 3
+    GPIOTE->CONFIG[3] = (1 << 20) | (3 << 16) | (0 << 12) | (15 << 8) | 1; // Set port as 0 and pin as 14. 0b11000000000
+
+    // GPIOTE channel 4 set to Row 4
+    GPIOTE->CONFIG[4] = (0 << 20) | (3 << 16) | (0 << 12) | (24 << 8) | 1; // Set port as 0 and pin as 14. 0b11000000000
+
+    // GPIOTE channel 5 set to Row 5
+    GPIOTE->CONFIG[5] = (1 << 20) | (3 << 16) | (0 << 12) | (19 << 8) | 1; // Set port as 0 and pin as 14. 0b11000000000
+
+    for(int channel = 0; channel <= 5; channel++)
+    {
+        PPI->CHEN = 1 << channel;
+        PPI->CHENSET = 1 << channel;
+    }
+    PPI->PPI_CH[1].EEP = (uint32_t)&(GPIOTE->EVENTS_IN[0]);
+    PPI->PPI_CH[1].TEP = (uint32_t)&(GPIOTE->TASKS_OUT[1]);
+
+    PPI->PPI_CH[2].EEP = (uint32_t)&(GPIOTE->EVENTS_IN[0]);
+    PPI->PPI_CH[2].TEP = (uint32_t)&(GPIOTE->TASKS_OUT[2]);
+
+    PPI->PPI_CH[3].EEP = (uint32_t)&(GPIOTE->EVENTS_IN[0]);
+    PPI->PPI_CH[3].TEP = (uint32_t)&(GPIOTE->TASKS_OUT[3]);
+
+    PPI->PPI_CH[4].EEP = (uint32_t)&(GPIOTE->EVENTS_IN[0]);
+    PPI->PPI_CH[4].TEP = (uint32_t)&(GPIOTE->TASKS_OUT[4]);
+
+    PPI->PPI_CH[5].EEP = (uint32_t)&(GPIOTE->EVENTS_IN[0]);
+    PPI->PPI_CH[5].TEP = (uint32_t)&(GPIOTE->TASKS_OUT[5]);
+
+	while(1){}
 
     return 0;
 }
