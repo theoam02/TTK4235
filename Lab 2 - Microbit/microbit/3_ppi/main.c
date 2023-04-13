@@ -63,9 +63,4 @@ int main(){
     return 0;
 }
 
-/*!SECTION
-Things to do:
--Fix writing to picobit
--Fix reading from picobit
--Find out how to include newlib
-*/
+// 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
